@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教師時間表系統 (支援中六完課動態空堂分析)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #27ae60;
+            --bg-color: #f8f9fa;
+            --warning-bg: #fff3cd;
+            --warning-border: #ffeeba;
+            --warning-text: #856404;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft JhengHei';
+            background-color: var(--bg-color);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 900px;
+            text-align: center;
+        }
+        input[type="file"] {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px dashed var(--accent-color);
+            border-radius: 4px;
+            background: #e8f5e9;
+            cursor: pointer;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        /* 中六完課設定面板 */
+        .s6-settings-panel {
+            display: none;
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            padding: 12px;
+            border-radius: 6px;
+            margin: 15px auto;
+            width: 90%;
+            max-width: 800px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+        }
+        .s6-settings-panel label {
+            font-weight: bold;
+            color: var(--warning-text);
+            font-size: 14px;
+        }
+        .s6-settings-panel input[type="date"] {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .mode-switch {
+            display: none;
+            margin: 15px 0;
+            padding: 12px;
+            background: #f1f8ff;
+            border: 1px solid #cce5ff;
+            border-radius: 6px;
+        }
+        .mode-switch label {
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 15px;
+            color: var(--primary-color);
+        }
+        .mode-switch input[type="radio"] {
+            transform: scale(1.2);
+            margin-right: 5px;
+        }
+        
+        select {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 90%;
+            max-width: 400px;
+            cursor: pointer;
+            margin: 0 auto;
+        }
+        
+        .checkbox-container {
+            text-align: left;
+            margin-top: 10px;
+        }
+        .checkbox-actions {
+            text-align: right;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .checkbox-actions a {
+            color: #3498db;
+            text-decoration: none;
+            margin-left: 10px;
+        }
+        .checkbox-actions a:hover {
+            text-decoration: underline;
+        }
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+        .teacher-checkbox {
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .teacher-checkbox input {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .table-container {
+            width: 100%;
+            max-width: 1200px;
+            overflow-x: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 10px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 800px;
+            text-align: center;
+        }
+        th, td {
+            border: 1px solid #e0e0e0;
+            padding: 12px 8px;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+        th {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        td:first-child, th:first-child {
+            background-color: var(--secondary-color);
+            color: white;
+            font-weight: bold;
+            white-space: nowrap;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+        }
+        th:first-child { z-index: 3; }
+        tr:nth-child(even) { background-color: #fcfcfc; }
+        tr:hover { background-color: #f1f1f1; }
+        .empty-cell { color: #aaa; }
+        
+        /* 中六完課單元格樣式 */
+        .s6-freed {
+            color: #7f8c8d;
+            font-size: 12px;
+            font-style: italic;
+        }
+        #statusMessage { margin-top: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>教師時間表檢視系統</h1>
+        <p>設定中六完課日期後，系統會自動將中六課堂視為空堂，方便行政排期與會議精準對齊。</p>
+    </div>
+
+    <div class="controls">
+        <label for="excelFile"><strong>第一步：匯入包含全校老師的 Excel (.xlsx) 檔案</strong></label><br>
+        <input type="file" id="excelFile" accept=".xlsx, .xls">
+        <div id="statusMessage" style="color:var(--accent-color);"></div>
+        
+        <div id="s6Settings" class="s6-settings-panel" style="display:none;">
+            <label>中六完課日期：
+                <input type="date" id="s6GradDate" value="2026-03-01">
+            </label>
+            <label>目前檢視日期：
+                <input type="date" id="viewDate" value="2026-05-27">
+            </label>
+            <label style="cursor:pointer;">
+                <input type="checkbox" id="forceS6Free"> ⚠️ 強制使中六課堂變為空堂
+            </label>
+        </div>
+
+        <div id="modeSelection" class="mode-switch">
+            <label><input type="radio" name="mode" value="single" checked onchange="switchMode()"> 檢視個人時間表</label>
+            <label><input type="radio" name="mode" value="common" onchange="switchMode()"> 尋找共同空堂</label>
+        </div>
+
+        <div id="singleModeArea" style="display:none;">
+            <label id="selectLabel" for="teacherSelect" style="font-weight:bold; display:block; margin-bottom:10px;">第二步：選擇一位教師</label>
+            <select id="teacherSelect">
+                <option value="">-- 請選擇教師 --</option>
+            </select>
+        </div>
+
+        <div id="commonModeArea" style="display:none;">
+            <div class="checkbox-container">
+                <div class="checkbox-actions">
+                    <strong>請勾選要比對的老師：</strong>
+                    <a href="#" onclick="toggleAllCheckboxes(true); return false;">全部選取</a> | 
+                    <a href="#" onclick="toggleAllCheckboxes(false); return false;">全部取消</a>
+                </div>
+                <div class="checkbox-grid" id="checkboxGrid">
+                    </div>
+            </div>
+            <button class="btn-primary" onclick="renderCommonFree()">開始比對共同空堂</button>
+        </div>
+    </div>
+
+    <div class="table-container" id="tableContainer">
+        </div>
+
+    <script>
+        const teacherData = {};
+
+        // 判斷該課堂字串是否屬於中六
+        function isS6Class(text) {
+            if (!text) return false;
+            const cleanText = String(text).trim();
+            // 匹配格式如：6A, 6B, 6C, 6D, 6X, 中六, 或包含特殊班別編號如 6EP, 6CP, 6MP
+            return /6[A-Za-z]|中六/.test(cleanText);
+        }
+
+        // 檢查目前是否已過中六完課階段
+        function isS6Graduated() {
+            if (document.getElementById('forceS6Free').checked) return true;
+            
+            const gradDateVal = document.getElementById('s6GradDate').value;
+            const viewDateVal = document.getElementById('viewDate').value;
+            
+            if (gradDateVal && viewDateVal) {
+                return new Date(viewDateVal) >= new Date(gradDateVal);
+            }
+            return false;
+        }
+
+        // 當完課日期、檢視日期或勾選方塊變更時，即時重繪當前視圖
+        document.getElementById('s6GradDate').addEventListener('change', refreshCurrentView);
+        document.getElementById('viewDate').addEventListener('change', refreshCurrentView);
+        document.getElementById('forceS6Free').addEventListener('change', refreshCurrentView);
+
+        function refreshCurrentView() {
+            if (Object.keys(teacherData).length === 0) return;
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            if (mode === 'single') {
+                const select = document.getElementById('teacherSelect');
+                if (select.value) renderTable(teacherData[select.value]);
+            } else {
+                const checkboxes = document.querySelectorAll('.cb-teacher:checked');
+                if (checkboxes.length > 0) renderCommonFree();
+            }
+        }
+
+        // 讀取 Excel 檔案
+        document.getElementById('excelFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('statusMessage').innerText = "讀取 Excel 檔案中，請稍候...";
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const data = new Uint8Array(event.target.result);
+                try {
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    let sheetsProcessed = 0;
+                    for (let key in teacherData) delete teacherData[key];
+
+                    workbook.SheetNames.forEach(sheetName => {
+                        const worksheet = workbook.Sheets[sheetName];
+                        const parsedData = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+
+                        let headerIndex = -1;
+                        for (let i = 0; i < parsedData.length; i++) {
+                            if (parsedData[i].some(cell => String(cell).includes('Day 1') || String(cell).includes('Day 2'))) {
+                                headerIndex = i;
+                                break;
+                            }
+                        }
+
+                        if (headerIndex !== -1) {
+                            const teacherName = sheetName.trim();
+                            teacherData[teacherName] = parsedData.slice(headerIndex);
+                            sheetsProcessed++;
+                        }
+                    });
+
+                    if (sheetsProcessed > 0) {
+                        document.getElementById('statusMessage').innerText = `成功匯入 ${sheetsProcessed} 位教師的資料！`;
+                        document.getElementById('s6Settings').style.display = 'flex';
+                        document.getElementById('modeSelection').style.display = 'block';
+                        populateDropdownAndCheckboxes();
+                        switchMode();
+                    } else {
+                        document.getElementById('statusMessage').innerText = "無法在檔案中找到有效的時間表格式。";
+                        document.getElementById('statusMessage').style.color = "red";
+                    }
+                } catch (error) {
+                    console.error(error);
+                    document.getElementById('statusMessage').innerText = "讀取檔案時發生錯誤。";
+                    document.getElementById('statusMessage').style.color = "red";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function populateDropdownAndCheckboxes() {
+            const select = document.getElementById('teacherSelect');
+            const checkboxGrid = document.getElementById('checkboxGrid');
+            
+            select.innerHTML = '<option value="">-- 請選擇教師 --</option>';
+            checkboxGrid.innerHTML = '';
+            
+            const sortedNames = Object.keys(teacherData).sort();
+            
+            sortedNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+
+                const label = document.createElement('label');
+                label.className = 'teacher-checkbox';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = name;
+                cb.className = 'cb-teacher';
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(name));
+                checkboxGrid.appendChild(label);
+            });
+
+            select.onchange = function() {
+                if (this.value) {
+                    renderTable(teacherData[this.value]);
+                } else {
+                    document.getElementById('tableContainer').innerHTML = '';
+                }
+            };
+        }
+
+        function switchMode() {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            document.getElementById('tableContainer').innerHTML = '';
+            
+            if (mode === 'single') {
+                document.getElementById('singleModeArea').style.display = 'block';
+                document.getElementById('commonModeArea').style.display = 'none';
+                document.getElementById('teacherSelect').value = '';
+            } else {
+                document.getElementById('singleModeArea').style.display = 'none';
+                document.getElementById('commonModeArea').style.display = 'block';
+            }
+        }
+
+        function toggleAllCheckboxes(state) {
+            const checkboxes = document.querySelectorAll('.cb-teacher');
+            checkboxes.forEach(cb => cb.checked = state);
+        }
+
+        // 核心邏輯：比對並渲染共同空堂
+        function renderCommonFree() {
+            const checkboxes = document.querySelectorAll('.cb-teacher:checked');
+            const selectedTeachers = Array.from(checkboxes).map(cb => cb.value);
+            const s6FreeActive = isS6Graduated();
+            
+            if (selectedTeachers.length === 0) {
+                document.getElementById('tableContainer').innerHTML = '<div style="padding:30px; color:#e74c3c; font-weight:bold; font-size:18px;">請至少勾選一位老師！</div>';
+                return;
+            }
+
+            const templateGrid = teacherData[Object.keys(teacherData)[0]];
+            const commonGrid = [];
+            
+            templateGrid.forEach((row, rIdx) => {
+                if (row.every(cell => String(cell).trim() === '')) return;
+
+                const newRow = [];
+                const firstCellData = String(row[1] || '').trim();
+                const isBreakRow = ['Morning Assembly', 'Recess', 'Lunch', 'Roll Call'].includes(firstCellData);
+                
+                row.forEach((cell, cIdx) => {
+                    if (rIdx === 0 || cIdx === 0 || isBreakRow) {
+                        newRow.push(cell);
+                        return;
+                    }
+                    
+                    let isFreeForAll = true;
+                    for (let t of selectedTeachers) {
+                        const tRow = teacherData[t][rIdx] || [];
+                        const tCell = String(tRow[cIdx] || '').trim();
+                        
+                        // 核心調整：若過完課期且該堂為中六，在比對中直接當成「空堂」處理
+                        const isFreedSlot = s6FreeActive && isS6Class(tCell);
+                        
+                        if (tCell !== '' && !isFreedSlot) {
+                            isFreeForAll = false;
+                            break;
+                        }
+                    }
+                    
+                    if (isFreeForAll) {
+                        newRow.push('<div style="background:#e8f5e9; color:#27ae60; font-weight:bold; padding:8px; border-radius:4px; border:1px solid #a3e4d7;">✅ 空堂</div>');
+                    } else {
+                        newRow.push('');
+                    }
+                });
+                commonGrid.push(newRow);
+            });
+            
+            renderTable(commonGrid, true);
+        }
+
+        // 渲染表格 (整合中六放假視覺效果)
+        function renderTable(rows, isCommonMode = false) {
+            const s6FreeActive = isS6Graduated();
+            let html = '<table>';
+            
+            rows.forEach((row, index) => {
+                const isEmptyRow = row.every(cell => String(cell).trim() === '');
+                if (isEmptyRow) return;
+
+                html += '<tr>';
+                row.forEach((cell, cIdx) => {
+                    let cellContent = String(cell || '').replace(/\n/g, '<br>');
+                    let isS6Vacant = false;
+
+                    // 在單人檢視模式下，將中六課堂置換為特別空堂標籤
+                    if (!isCommonMode && index > 0 && cIdx > 0 && s6FreeActive && isS6Class(cellContent)) {
+                        isS6Vacant = true;
+                        cellContent = `<div class="s6-freed">中六完課釋放<br><span style="text-decoration:line-through; color:#b2bec3;">${cellContent}</span></div>`;
+                    }
+
+                    if (!cellContent.trim()) {
+                        cellContent = '<span class="empty-cell">-</span>';
+                    }
+
+                    if (index === 0) {
+                        html += `<th>${cellContent}</th>`;
+                    } else {
+                        if (isS6Vacant) {
+                            html += `<td style="background-color: #f5f6fa; color: #7f8c8d;">${cellContent}</td>`;
+                        } else {
+                            html += `<td>${cellContent}</td>`;
+                        }
+                    }
+                });
+                html += '</tr>';
+            });
+            html += '</table>';
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+    </script>
+</body>
+</html>

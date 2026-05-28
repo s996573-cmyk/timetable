@@ -2,330 +2,212 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>教師時間表 (手機網上版)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教師時間表系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
-            --primary: #2b5797;
-            --secondary: #eff4ff;
-            --accent: #27ae60;
-            --bg: #f5f6fa;
-            --text: #2f3640;
+            --primary-color: #0056b3;
+            --bg-color: #f4f7f6;
         }
-        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        body { margin: 0; padding: 0; background-color: var(--bg); color: var(--text); padding-bottom: 30px; }
-        
-        /* 頂部導航列 */
-        .navbar {
-            background-color: var(--primary);
-            color: white;
-            padding: 15px 20px;
-            text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        /* 狀態列與手動上傳區 */
-        .status-area { padding: 15px; text-align: center; font-size: 14px; }
-        .fallback-upload { display: none; margin-top: 10px; padding: 15px; background: white; border-radius: 8px; border: 1px dashed #ccc; }
-        
-        /* 控制面板 */
-        .controls {
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
             padding: 15px;
-            background: white;
-            margin: 10px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            background-color: var(--bg-color);
+            color: #333;
         }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 14px; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            font-size: 24px;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        select, input[type="file"] {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-width: 100%;
+        }
         select {
             width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: #fff;
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23333%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E");
-            background-repeat: no-repeat;
-            background-position: right 15px top 50%;
-            background-size: 12px auto;
+            max-width: 300px;
+            cursor: pointer;
         }
-
-        /* 擴展功能開關 */
-        .toggle-s6 {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 12px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeeba;
-            font-size: 14px; font-weight: bold; color: #856404; margin-bottom: 10px;
-        }
-        
-        /* 時間表卡片列表 */
-        .schedule-container { padding: 0 10px; }
-        .period-card {
-            display: flex;
-            background: white;
-            margin-bottom: 12px;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-            border-left: 5px solid var(--primary);
-        }
-        .period-card.free { border-left-color: var(--accent); }
-        .period-card.break { border-left-color: #f39c12; background: #fdfae6; }
-        
-        .time-col {
-            width: 85px;
-            background: var(--secondary);
-            padding: 15px 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 13px;
-            color: var(--primary);
-            text-align: center;
-            border-right: 1px solid #eaeaea;
-        }
-        .content-col {
-            flex: 1;
+        #upload-section {
+            display: none; /* 預設隱藏，找不到檔案才顯示 */
+            background: #ffeeba;
             padding: 15px;
-            font-size: 15px;
-            display: flex;
-            align-items: center;
-            line-height: 1.4;
+            border-radius: 5px;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
         }
-        
-        /* 狀態文字樣式 */
-        .text-free { color: var(--accent); font-weight: bold; font-size: 16px; }
-        .text-break { color: #d35400; font-weight: bold; }
-        .s6-freed { color: #95a5a6; }
-        .s6-freed-badge { display: inline-block; background: #ecf0f1; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-top: 4px; color: #7f8c8d; }
-        .s6-strike { text-decoration: line-through; }
+        #status-msg {
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
 
-        /* 隱藏預設元件，待載入後顯示 */
-        #appContent { display: none; }
-        .loading-spinner { font-size: 24px; animation: spin 1s linear infinite; display: inline-block; margin-bottom: 10px;}
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        /* 表格與手機版優化 (響應式設計) */
+        .table-wrapper {
+            overflow-x: auto; /* 手機版可左右滑動 */
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 800px; /* 強制最小寬度，保持表格形狀 */
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px 8px;
+            text-align: center;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+        /* 固定第一欄 (時間欄) */
+        td:first-child, th:first-child {
+            position: sticky;
+            left: 0;
+            background-color: #eef2f5;
+            font-weight: bold;
+            z-index: 1;
+            border-right: 2px solid #ccc;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        /* 簡單的按鈕樣式 */
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
-    <div class="navbar">
-        教師時間表系統 📱
-    </div>
+<div class="container">
+    <h1>👨‍🏫 教師時間表查詢系統</h1>
+    
+    <div id="status-msg">系統正在嘗試讀取預設時間表...</div>
 
-    <div class="status-area" id="statusArea">
-        <div class="loading-spinner">🔄</div><br>
-        <strong id="statusText">正在嘗試連線獲取學校時間表...</strong>
-        
-        <div class="fallback-upload" id="fallbackUpload">
-            <p style="color: #e74c3c;">找不到線上資料檔，請手動上傳 Excel 檔案</p>
-            <input type="file" id="excelFile" accept=".xlsx, .xls" style="width:100%; padding:10px; border:1px solid #ccc;">
+    <div class="controls">
+        <div id="upload-section">
+            <p>⚠️ 找不到預設檔案 (Teacher_Timetable.xlsx)<br>請聯絡管理員，或在此手動上載 Excel 檔案：</p>
+            <input type="file" id="excel-file" accept=".xlsx, .xls, .csv">
         </div>
+
+        <select id="teacher-select" style="display: none;">
+            <option value="">-- 請選擇教師 --</option>
+        </select>
     </div>
 
-    <div id="appContent">
-        <div class="controls">
-            <div class="input-group">
-                <label>👤 選擇教師</label>
-                <select id="teacherSelect">
-                    <option value="">-- 請先選擇老師 --</option>
-                </select>
-            </div>
+    <div class="table-wrapper">
+        <div id="timetable-container"></div>
+    </div>
+</div>
+
+<script>
+    let currentWorkbook = null;
+    const defaultFileName = 'Teacher_Timetable.xlsx'; // 預設讀取的檔案名
+
+    // 網頁載入後立即執行
+    window.onload = async function() {
+        try {
+            // 嘗試從伺服器讀取預設 Excel 檔
+            const response = await fetch(defaultFileName);
+            if (!response.ok) throw new Error('File not found');
             
-            <div class="input-group">
-                <label>📅 選擇循環週 (Day)</label>
-                <select id="daySelect">
-                    <option value="1">Day 1</option>
-                    <option value="2">Day 2</option>
-                    <option value="3">Day 3</option>
-                    <option value="4">Day 4</option>
-                    <option value="5">Day 5</option>
-                    <option value="6">Day 6</option>
-                    <option value="7">Day 7</option>
-                </select>
-            </div>
+            const arrayBuffer = await response.arrayBuffer();
+            const data = new Uint8Array(arrayBuffer);
+            processExcelData(data);
+            document.getElementById('status-msg').innerText = "✅ 成功載入預設時間表！請選擇教師。";
+            
+        } catch (error) {
+            console.log("找不到預設檔案，啟動手動上載模式");
+            document.getElementById('status-msg').style.display = 'none';
+            document.getElementById('upload-section').style.display = 'block';
+        }
+    };
 
-            <label class="toggle-s6">
-                <span>啟用「中六完課空堂」模式</span>
-                <input type="checkbox" id="s6ModeToggle" style="transform: scale(1.3);">
-            </label>
-        </div>
+    // 處理手動上載的檔案
+    document.getElementById('excel-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
 
-        <div class="schedule-container" id="scheduleList">
-            </div>
-    </div>
-
-    <script>
-        const teacherData = {};
-        let dayHeaders = []; // 儲存 Day 1, Day 2 等標題的欄位索引
-        
-        // 系統啟動時，優先嘗試用 Fetch API 讀取同目錄下的 Excel 檔
-        // (檔名必須命名為 Teacher_Timetable.xlsx)
-        window.onload = function() {
-            fetch('Teacher_Timetable.xlsx')
-                .then(response => {
-                    if (!response.ok) throw new Error('檔案不存在');
-                    return response.arrayBuffer();
-                })
-                .then(data => {
-                    processExcelData(new Uint8Array(data));
-                })
-                .catch(err => {
-                    console.warn("無法自動獲取線上資料，切換為手動模式:", err);
-                    document.getElementById('statusText').innerText = "連線失敗，進入離線模式";
-                    document.querySelector('.loading-spinner').style.display = 'none';
-                    document.getElementById('fallbackUpload').style.display = 'block';
-                });
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            processExcelData(data);
+            document.getElementById('status-msg').style.display = 'block';
+            document.getElementById('status-msg').innerText = "✅ 檔案上載成功！請選擇教師。";
+            document.getElementById('upload-section').style.display = 'none'; // 隱藏上載區
         };
+        reader.readAsArrayBuffer(file);
+    });
 
-        // 綁定手動上傳事件
-        document.getElementById('excelFile').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            document.getElementById('statusText').innerText = "檔案讀取中...";
-            
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                processExcelData(new Uint8Array(event.target.result));
-            };
-            reader.readAsArrayBuffer(file);
+    // 解析 Excel 數據
+    function processExcelData(data) {
+        currentWorkbook = XLSX.read(data, {type: 'array'});
+        
+        const selectElement = document.getElementById('teacher-select');
+        selectElement.innerHTML = '<option value="">-- 請選擇教師 --</option>'; // 清空重置
+        
+        // 假設每一個 Sheet (工作表) 就是一位老師的名字
+        currentWorkbook.SheetNames.forEach(sheetName => {
+            let option = document.createElement('option');
+            option.value = sheetName;
+            option.text = sheetName;
+            selectElement.appendChild(option);
         });
 
-        // 處理 Excel 資料的核心邏輯
-        function processExcelData(data) {
-            try {
-                const workbook = XLSX.read(data, {type: 'array'});
-                let sheetsProcessed = 0;
-                for (let key in teacherData) delete teacherData[key];
+        selectElement.style.display = 'block'; // 顯示選單
+    }
 
-                workbook.SheetNames.forEach(sheetName => {
-                    const worksheet = workbook.Sheets[sheetName];
-                    const parsedData = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
-
-                    let headerIndex = -1;
-                    for (let i = 0; i < parsedData.length; i++) {
-                        if (parsedData[i].some(cell => String(cell).includes('Day 1') || String(cell).includes('Day 2'))) {
-                            headerIndex = i;
-                            // 記錄第一位老師的表頭，用來抓 Day 1~7 的欄位位置
-                            if (sheetsProcessed === 0) {
-                                dayHeaders = parsedData[i]; 
-                            }
-                            break;
-                        }
-                    }
-
-                    if (headerIndex !== -1) {
-                        const teacherName = sheetName.trim();
-                        teacherData[teacherName] = parsedData.slice(headerIndex);
-                        sheetsProcessed++;
-                    }
-                });
-
-                if (sheetsProcessed > 0) {
-                    document.getElementById('statusArea').style.display = 'none';
-                    document.getElementById('appContent').style.display = 'block';
-                    initUI();
-                }
-            } catch (error) {
-                console.error(error);
-                document.getElementById('statusText').innerText = "資料解析失敗，請確認 Excel 格式。";
-            }
-        }
-
-        // 初始化 UI (選單)
-        function initUI() {
-            const select = document.getElementById('teacherSelect');
-            select.innerHTML = '<option value="">-- 請選擇老師 --</option>';
-            
-            Object.keys(teacherData).sort().forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                select.appendChild(option);
-            });
-
-            // 綁定選單事件
-            document.getElementById('teacherSelect').addEventListener('change', renderMobileSchedule);
-            document.getElementById('daySelect').addEventListener('change', renderMobileSchedule);
-            document.getElementById('s6ModeToggle').addEventListener('change', renderMobileSchedule);
-        }
-
-        // 判斷是否為中六課堂
-        function isS6Class(text) {
-            if (!text) return false;
-            return /6[A-Za-z]|中六/.test(String(text).trim());
-        }
-
-        // 渲染手機版直向列表
-        function renderMobileSchedule() {
-            const teacherName = document.getElementById('teacherSelect').value;
-            const targetDay = "Day " + document.getElementById('daySelect').value;
-            const s6Mode = document.getElementById('s6ModeToggle').checked;
-            const container = document.getElementById('scheduleList');
-            
+    // 當選擇不同老師時，更新表格
+    document.getElementById('teacher-select').addEventListener('change', function(e) {
+        const sheetName = e.target.value;
+        const container = document.getElementById('timetable-container');
+        
+        if (!sheetName) {
             container.innerHTML = '';
-            
-            if (!teacherName) {
-                container.innerHTML = '<div style="text-align:center; padding:30px; color:#7f8c8d;">請從上方選擇老師 👆</div>';
-                return;
-            }
-
-            const rawData = teacherData[teacherName];
-            if (!rawData) return;
-
-            // 尋找目標 Day 在陣列中的索引位置 (通常 Day 1 在 index 1)
-            let dayIndex = dayHeaders.findIndex(h => String(h).trim() === targetDay);
-            if(dayIndex === -1) dayIndex = parseInt(document.getElementById('daySelect').value); // 備用方案
-
-            let html = '';
-            
-            // 略過第 0 列 (表頭)
-            for (let i = 1; i < rawData.length; i++) {
-                const row = rawData[i];
-                if (row.every(cell => String(cell).trim() === '')) continue; // 略過完全空白行
-
-                const timeSlot = String(row[0] || '').replace(/\n/g, '<br>');
-                let classInfo = String(row[dayIndex] || '').trim();
-                let cardClass = '';
-                let displayContent = classInfo.replace(/\n/g, '<br>');
-
-                // 判斷特殊時段
-                const isBreak = ['Morning Assembly', 'Recess', 'Lunch', 'Roll Call'].includes(String(row[1] || '').trim());
-                
-                if (isBreak) {
-                    cardClass = 'break';
-                    displayContent = `<span class="text-break">${String(row[1] || '').trim()}</span>`;
-                } 
-                else if (classInfo === '') {
-                    cardClass = 'free';
-                    displayContent = '<span class="text-free">✅ 空堂</span>';
-                } 
-                else if (s6Mode && isS6Class(classInfo)) {
-                    // 中六釋放為空堂
-                    cardClass = 'free';
-                    displayContent = `
-                        <div class="s6-freed">
-                            <span class="s6-strike">${displayContent}</span><br>
-                            <span class="s6-freed-badge">✅ 中六完課釋放</span>
-                        </div>`;
-                }
-
-                html += `
-                <div class="period-card ${cardClass}">
-                    <div class="time-col">${timeSlot}</div>
-                    <div class="content-col">${displayContent}</div>
-                </div>`;
-            }
-
-            container.innerHTML = html;
+            return;
         }
-    </script>
+
+        // 將選定的 Sheet 直接轉換為 HTML 表格
+        const worksheet = currentWorkbook.Sheets[sheetName];
+        let htmlTable = XLSX.utils.sheet_to_html(worksheet, { id: "data-table", editable: false });
+        
+        // 清理空行 (可選，讓表格更美觀)
+        htmlTable = htmlTable.replace(/<tr><td[^>]*><\/td><\/tr>/g, "");
+        
+        container.innerHTML = htmlTable;
+    });
+</script>
+
 </body>
 </html>

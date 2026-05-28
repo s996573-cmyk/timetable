@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教師時間表系統 (自動讀取 / 備用上載版)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #27ae60;
+            --bg-color: #f8f9fa;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft JhengHei';
+            background-color: var(--bg-color);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .s6-freed {
+            font-weight: bold;
+            color: #e74c3c;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        select, button, input[type="file"] {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            cursor: pointer;
+            border: none;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #2ecc71;
+        }
+        .switch-container {
+            display: inline-block;
+            margin-left: 20px;
+        }
+        .empty-cell {
+            color: #ccc;
+        }
+        #loadingMsg {
+            color: #e67e22;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>教師時間表系統</h1>
+    </div>
+
+    <div class="panel" id="statusPanel">
+        <div id="loadingMsg">🔄 系統正在嘗試讀取預設時間表 (Teacher_Timetable.xlsx)...</div>
+        
+        <div id="uploadArea" style="display: none;">
+            <p style="color: #e74c3c; font-weight: bold;">⚠️ 找不到預設時間表，請手動上載 Excel 檔案：</p>
+            <input type="file" id="fileUpload" accept=".xlsx, .xls, .csv">
+        </div>
+    </div>
+
+    <div class="panel" id="controlArea" style="display: none;">
+        <select id="teacherSelect">
+            <option value="">-- 請選擇教師 --</option>
+        </select>
+
+        <div class="switch-container">
+            <label>
+                <input type="checkbox" id="commonMode"> 共同檢視模式 (顯示全部)
+            </label>
+        </div>
+        
+        <div class="switch-container">
+            <label>
+                <input type="checkbox" id="s6FreeSwitch" checked> 啟用中六完課空堂
+            </label>
+        </div>
+
+        <button onclick="renderTimetable()">顯示時間表</button>
+    </div>
+
+    <div id="tableContainer"></div>
+
+    <script>
+        let globalWorkbook = null;
+
+        // 【1】當網頁一打開，立刻嘗試背景下載並讀取 Teacher_Timetable.xlsx
+        window.onload = function() {
+            fetch('Teacher_Timetable.xlsx')
+                .then(response => {
+                    // 如果檔案不存在 (例如報錯 404)，跳到 catch 錯誤處理
+                    if (!response.ok) {
+                        throw new Error('找不到預設檔案');
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(buffer => {
+                    // 成功抓取到預設檔案！開始解碼 Excel
+                    const data = new Uint8Array(buffer);
+                    globalWorkbook = XLSX.read(data, {type: 'array'});
+                    
+                    // 隱藏狀態面板，顯示控制項
+                    document.getElementById('statusPanel').style.display = 'none'; 
+                    document.getElementById('controlArea').style.display = 'block'; 
+                    
+                    populateTeacherSelect(globalWorkbook);
+                })
+                .catch(error => {
+                    // 【2】找不到檔案，或是讀取失敗時的備用方案 (Fallback)
+                    console.warn('無法自動載入預設檔案：', error);
+                    document.getElementById('loadingMsg').style.display = 'none';  // 隱藏 Loading 字眼
+                    document.getElementById('uploadArea').style.display = 'block'; // 彈出要求手動上載按鈕
+                });
+        };
+
+        // 【3】監聽手動上載動作 (如果用戶使用了備用方案)
+        document.getElementById('fileUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 切換畫面狀態為正在讀取
+            document.getElementById('uploadArea').style.display = 'none';
+            document.getElementById('loadingMsg').innerText = '🔄 正在處理您上載的檔案...';
+            document.getElementById('loadingMsg').style.display = 'block';
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                globalWorkbook = XLSX.read(data, {type: 'array'});
+                
+                // 讀取成功，進入主畫面
+                document.getElementById('statusPanel').style.display = 'none'; 
+                document.getElementById('controlArea').style.display = 'block'; 
+                
+                populateTeacherSelect(globalWorkbook);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // 將工作表名稱(老師名字)填入下拉式選單
+        function populateTeacherSelect(workbook) {
+            const select = document.getElementById('teacherSelect');
+            select.innerHTML = '<option value="">-- 請選擇教師 --</option>';
+            workbook.SheetNames.forEach(sheetName => {
+                const option = document.createElement('option');
+                option.value = sheetName;
+                option.textContent = sheetName;
+                select.appendChild(option);
+            });
+        }
+
+        // 判斷是否為中六課堂
+        const isS6Class = (text) => {
+            // 包含任何與中六相關的字眼
+            return text.includes('6A') || text.includes('6B') || text.includes('6C') || text.includes('6D') || text.includes('6MP') || text.includes('6EP') || text.includes('6CP');
+        };
+
+        // 渲染選定老師的時間表
+        function renderTimetable() {
+            if (!globalWorkbook) {
+                alert("尚未載入任何數據檔！");
+                return;
+            }
+
+            const selectedSheet = document.getElementById('teacherSelect').value;
+            if (!selectedSheet) {
+                alert("請先選擇一位教師！");
+                return;
+            }
+
+            const isCommonMode = document.getElementById('commonMode').checked;
+            const s6FreeActive = document.getElementById('s6FreeSwitch').checked;
+            
+            // 讀取指定 Sheet 內的資料
+            const sheet = globalWorkbook.Sheets[selectedSheet];
+            const jsonData = XLSX.utils.sheet_to_json(sheet, {header: 1, defval: ""});
+            
+            if (jsonData.length === 0) {
+                document.getElementById('tableContainer').innerHTML = "<p>該工作表沒有資料。</p>";
+                return;
+            }
+
+            let html = '<table>';
+            jsonData.forEach((row, index) => {
+                // 忽略完全空白的行
+                const isEmptyRow = row.every(cell => String(cell).trim() === '');
+                if (isEmptyRow) return;
+
+                html += '<tr>';
+                row.forEach((cell, cIdx) => {
+                    let cellContent = String(cell || '').replace(/\n/g, '<br>');
+                    let isS6Vacant = false;
+
+                    // 單人檢視模式下，且中六開關為 ON 時，將中六課堂置換為特別空堂標籤
+                    if (!isCommonMode && index > 0 && cIdx > 0 && s6FreeActive && isS6Class(cellContent)) {
+                        isS6Vacant = true;
+                        cellContent = `<div class="s6-freed">中六完課釋放<br><span style="text-decoration:line-through; color:#b2bec3;">${cellContent}</span></div>`;
+                    }
+
+                    if (!cellContent.trim()) {
+                        cellContent = '<span class="empty-cell">-</span>';
+                    }
+
+                    if (index === 0) {
+                        html += `<th>${cellContent}</th>`;
+                    } else {
+                        if (isS6Vacant) {
+                            html += `<td style="background-color: #f5f6fa; color: #7f8c8d;">${cellContent}</td>`;
+                        } else {
+                            html += `<td>${cellContent}</td>`;
+                        }
+                    }
+                });
+                html += '</tr>';
+            });
+            html += '</table>';
+            
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+    </script>
+</body>
+</html>

@@ -9,6 +9,8 @@
         :root {
             --primary-color: #0056b3;
             --bg-color: #f4f7f6;
+            --free-bg: #d4edda;
+            --free-color: #155724;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -30,7 +32,7 @@
             color: var(--primary-color);
             font-size: 24px;
         }
-        .controls {
+        .controls-wrapper {
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -42,20 +44,45 @@
             font-size: 16px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            max-width: 100%;
-        }
-        select {
             width: 100%;
             max-width: 300px;
             cursor: pointer;
         }
+        /* 功能選單區 */
+        .options-panel {
+            display: flex;
+            gap: 20px;
+            background: #eef2f5;
+            padding: 15px 25px;
+            border-radius: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+        }
+        .checkbox-label {
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-label input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
         #upload-section {
-            display: none; /* 預設隱藏，找不到檔案才顯示 */
+            display: none;
             background: #ffeeba;
             padding: 15px;
             border-radius: 5px;
             text-align: center;
             width: 100%;
+            max-width: 600px;
             box-sizing: border-box;
         }
         #status-msg {
@@ -65,17 +92,18 @@
             margin-bottom: 10px;
         }
 
-        /* 表格與手機版優化 (響應式設計) */
+        /* 表格與手機版優化 */
         .table-wrapper {
-            overflow-x: auto; /* 手機版可左右滑動 */
+            overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             border: 1px solid #ddd;
             border-radius: 5px;
+            margin-top: 10px;
         }
         table {
             border-collapse: collapse;
             width: 100%;
-            min-width: 800px; /* 強制最小寬度，保持表格形狀 */
+            min-width: 800px; /* 手機上維持表格形狀，可橫滑 */
             font-size: 14px;
         }
         th, td {
@@ -84,8 +112,8 @@
             text-align: center;
             vertical-align: middle;
             word-wrap: break-word;
+            height: 40px;
         }
-        /* 固定第一欄 (時間欄) */
         td:first-child, th:first-child {
             position: sticky;
             left: 0;
@@ -97,14 +125,17 @@
         tr:nth-child(even) {
             background-color: #f9f9f9;
         }
-        /* 簡單的按鈕樣式 */
-        .btn {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
+        
+        /* 空堂突顯樣式 */
+        .is-free-period {
+            background-color: var(--free-bg) !important;
+            color: var(--free-color);
+            font-weight: bold;
+        }
+        /* 休息/午膳時間淡化 */
+        .is-break-time {
+            background-color: #f1f1f1 !important;
+            color: #888;
         }
     </style>
 </head>
@@ -115,99 +146,8 @@
     
     <div id="status-msg">系統正在嘗試讀取預設時間表...</div>
 
-    <div class="controls">
+    <div class="controls-wrapper">
         <div id="upload-section">
-            <p>⚠️ 找不到預設檔案 (Teacher_Timetable.xlsx)<br>請聯絡管理員，或在此手動上載 Excel 檔案：</p>
+            <p>⚠️ 找不到預設檔案 (Teacher_Timetable.xlsx)<br>請在此手動上載 Excel 檔案：</p>
             <input type="file" id="excel-file" accept=".xlsx, .xls, .csv">
         </div>
-
-        <select id="teacher-select" style="display: none;">
-            <option value="">-- 請選擇教師 --</option>
-        </select>
-    </div>
-
-    <div class="table-wrapper">
-        <div id="timetable-container"></div>
-    </div>
-</div>
-
-<script>
-    let currentWorkbook = null;
-    const defaultFileName = 'Teacher_Timetable.xlsx'; // 預設讀取的檔案名
-
-    // 網頁載入後立即執行
-    window.onload = async function() {
-        try {
-            // 嘗試從伺服器讀取預設 Excel 檔
-            const response = await fetch(defaultFileName);
-            if (!response.ok) throw new Error('File not found');
-            
-            const arrayBuffer = await response.arrayBuffer();
-            const data = new Uint8Array(arrayBuffer);
-            processExcelData(data);
-            document.getElementById('status-msg').innerText = "✅ 成功載入預設時間表！請選擇教師。";
-            
-        } catch (error) {
-            console.log("找不到預設檔案，啟動手動上載模式");
-            document.getElementById('status-msg').style.display = 'none';
-            document.getElementById('upload-section').style.display = 'block';
-        }
-    };
-
-    // 處理手動上載的檔案
-    document.getElementById('excel-file').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const data = new Uint8Array(e.target.result);
-            processExcelData(data);
-            document.getElementById('status-msg').style.display = 'block';
-            document.getElementById('status-msg').innerText = "✅ 檔案上載成功！請選擇教師。";
-            document.getElementById('upload-section').style.display = 'none'; // 隱藏上載區
-        };
-        reader.readAsArrayBuffer(file);
-    });
-
-    // 解析 Excel 數據
-    function processExcelData(data) {
-        currentWorkbook = XLSX.read(data, {type: 'array'});
-        
-        const selectElement = document.getElementById('teacher-select');
-        selectElement.innerHTML = '<option value="">-- 請選擇教師 --</option>'; // 清空重置
-        
-        // 假設每一個 Sheet (工作表) 就是一位老師的名字
-        currentWorkbook.SheetNames.forEach(sheetName => {
-            let option = document.createElement('option');
-            option.value = sheetName;
-            option.text = sheetName;
-            selectElement.appendChild(option);
-        });
-
-        selectElement.style.display = 'block'; // 顯示選單
-    }
-
-    // 當選擇不同老師時，更新表格
-    document.getElementById('teacher-select').addEventListener('change', function(e) {
-        const sheetName = e.target.value;
-        const container = document.getElementById('timetable-container');
-        
-        if (!sheetName) {
-            container.innerHTML = '';
-            return;
-        }
-
-        // 將選定的 Sheet 直接轉換為 HTML 表格
-        const worksheet = currentWorkbook.Sheets[sheetName];
-        let htmlTable = XLSX.utils.sheet_to_html(worksheet, { id: "data-table", editable: false });
-        
-        // 清理空行 (可選，讓表格更美觀)
-        htmlTable = htmlTable.replace(/<tr><td[^>]*><\/td><\/tr>/g, "");
-        
-        container.innerHTML = htmlTable;
-    });
-</script>
-
-</body>
-</html>

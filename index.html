@@ -179,7 +179,6 @@
             box-sizing: border-box;
         }
         
-        /* 避免標題與表格被斷頁切開的容器 */
         .print-container {
             page-break-inside: avoid;
             break-inside: avoid;
@@ -236,14 +235,14 @@
         }
         #statusMessage { margin-top: 10px; font-weight: bold; }
 
-        /* ================= 列印專用樣式 ================= */
+        /* ================= 列印專用樣式 (設定 68% 縮放與單頁顯示) ================= */
         @media print {
             .header, .controls, #printActionBar {
                 display: none !important;
             }
             @page {
-                size: A4 portrait; /* 直向列印 */
-                margin: 10mm;
+                size: A4 portrait; /* 直向 */
+                margin: 5mm; /* 縮小頁邊距以提供更多空間 */
             }
             body {
                 background-color: white;
@@ -259,10 +258,17 @@
                 overflow: visible !important;
             }
             
+            /* 強制整體容器縮放至 68% 並靠左上方對齊 */
+            .print-container {
+                transform: scale(0.68);
+                transform-origin: top left;
+                width: 147%; /* 補償 68% 縮放產生的空間變窄 (1 / 0.68 ≈ 1.47) */
+            }
+
             .print-header {
-                font-size: 18px !important;
+                font-size: 20px !important;
                 color: black !important;
-                border-bottom: 1px solid black;
+                border-bottom: 2px solid black;
                 margin-top: 0;
                 margin-bottom: 10px;
                 padding-bottom: 5px;
@@ -272,15 +278,17 @@
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
+            
             table {
                 width: 100%;
-                font-size: 10px;
                 page-break-inside: avoid;
             }
+            
             th, td {
-                padding: 6px 4px !important;
+                padding: 8px 6px !important;
                 border: 1px solid #333 !important;
             }
+            
             th, td:first-child, th:first-child {
                 position: static !important;
             }
@@ -301,10 +309,10 @@
         
         <div id="s6Settings" class="s6-settings-panel" style="display:none;">
             <label>中六完課日期：
-                <input type="date" id="s6GradDate" value="2027-03-01">
+                <input type="date" id="s6GradDate" value="2026-03-01">
             </label>
             <label>目前檢視日期：
-                <input type="date" id="viewDate" value="2027-05-27">
+                <input type="date" id="viewDate" value="2026-05-27">
             </label>
             <label style="cursor:pointer;">
                 <input type="checkbox" id="forceS6Free"> ⚠️ 強制使中六課堂變為空堂
@@ -355,7 +363,6 @@
             return /6[A-Za-z]|中六/.test(cleanText);
         }
 
-        // 班主任判定：檢查該老師在第7日（即第7欄）是否有「學生培育課」
         function isFormTeacher(teacherName) {
             const tGrid = teacherData[teacherName];
             if (!tGrid) return false;
@@ -548,7 +555,6 @@
             const templateGrid = teacherData[Object.keys(teacherData)[0]];
             const commonGrid = [];
             
-            // 預先檢查所有選中的老師是否為班主任
             const formTeacherStatus = {};
             for (let t of selectedTeachers) {
                 formTeacherStatus[t] = isFormTeacher(t);
@@ -561,7 +567,6 @@
                 const firstCellData = String(row[1] || '').trim();
                 const timeCellData = String(row[0] || '').trim();
                 
-                // 將「課前集會」從休息時間判斷中移除，以便進入空堂檢查邏輯
                 const isBreakRow = ['Recess', 'Lunch', '小息', '午膳', '隨後小休'].some(b => firstCellData.includes(b));
                 const isMorningAssembly = timeCellData.includes('08:00') && timeCellData.includes('08:15');
                 
@@ -576,7 +581,6 @@
                         const tRow = teacherData[t][rIdx] || [];
                         const tCell = String(tRow[cIdx] || '').trim();
                         
-                        // 若為課前集會，且該老師是班主任，則判定為非空堂 (Busy)
                         if (isMorningAssembly && formTeacherStatus[t]) {
                             isFreeForAll = false;
                             break;
@@ -593,7 +597,7 @@
                     if (isFreeForAll) {
                         newRow.push('<div style="background:#e8f5e9; color:#27ae60; font-weight:bold; padding:8px; border-radius:4px; border:1px solid #a3e4d7;">✅ 空堂</div>');
                     } else {
-                        newRow.push(''); // 在共同空堂表，若無共同空堂則保持空白
+                        newRow.push('');
                     }
                 });
                 commonGrid.push(newRow);
@@ -602,7 +606,6 @@
             renderTable(commonGrid, true, "教師共同空堂表");
         }
 
-        // 渲染表格 (整合了避免斷頁的容器，與單人檢視時自動補齊課前集會的功能)
         function renderTable(rows, isCommonMode = false, titleText = '') {
             const s6FreeActive = isS6Graduated();
             let isFormTeacherFlag = false;
@@ -611,7 +614,6 @@
                 isFormTeacherFlag = isFormTeacher(titleText);
             }
 
-            // 加入 .print-container 讓標題和表格綁在一起不被切頁
             let html = '<div class="print-container">'; 
             
             if (titleText) {
@@ -632,7 +634,6 @@
                     const timeCellData = String(row[0] || '').trim();
                     const isMorningAssembly = timeCellData.includes('08:00') && timeCellData.includes('08:15');
 
-                    // 在單人檢視模式中，如果他是班主任，自動把所有日子的課前集會填上「課前集會」
                     if (!isCommonMode && isFormTeacherFlag && cIdx > 0 && isMorningAssembly) {
                         if (!cellContent.trim()) {
                             cellContent = '課前集會';

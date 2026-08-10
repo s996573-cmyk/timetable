@@ -334,7 +334,12 @@
 
                         let headerIndex = -1;
                         for (let i = 0; i < parsedData.length; i++) {
-                            if (parsedData[i].some(cell => String(cell).includes('Day 1') || String(cell).includes('Day 2'))) {
+                            if (parsedData[i].some(cell => 
+                                String(cell).includes('Day 1') || 
+                                String(cell).includes('Day 2') || 
+                                String(cell).includes('第1日') || 
+                                String(cell).includes('第2日')
+                            )) {
                                 headerIndex = i;
                                 break;
                             }

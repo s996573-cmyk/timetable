@@ -54,7 +54,6 @@
             max-width: 500px;
         }
         
-        /* 中六完課設定面板 */
         .s6-settings-panel {
             display: none;
             background: var(--warning-bg);
@@ -182,6 +181,7 @@
         .print-container {
             page-break-inside: avoid;
             break-inside: avoid;
+            width: 100%;
         }
 
         .print-header {
@@ -235,14 +235,14 @@
         }
         #statusMessage { margin-top: 10px; font-weight: bold; }
 
-        /* ================= 列印專用樣式 (設定 68% 縮放與單頁顯示) ================= */
+        /* ================= 列印專用樣式 (完美適應直向 A4) ================= */
         @media print {
             .header, .controls, #printActionBar {
                 display: none !important;
             }
             @page {
-                size: A4 portrait; /* 直向 */
-                margin: 5mm; /* 縮小頁邊距以提供更多空間 */
+                size: A4 portrait;
+                margin: 8mm;
             }
             body {
                 background-color: white;
@@ -258,20 +258,18 @@
                 overflow: visible !important;
             }
             
-            /* 強制整體容器縮放至 83% 並靠左上方對齊 */
             .print-container {
-                transform: scale(0.83);
-                transform-origin: top left;
-                width: 147%; /* 補償 68% 縮放產生的空間變窄 (1 / 0.68 ≈ 1.47) */
+                width: 100% !important;
+                transform: none !important; /* 移除縮放限制，避免畫面被鎖死 */
             }
 
             .print-header {
-                font-size: 20px !important;
+                font-size: 16px !important;
                 color: black !important;
                 border-bottom: 2px solid black;
                 margin-top: 0;
-                margin-bottom: 10px;
-                padding-bottom: 5px;
+                margin-bottom: 6px;
+                padding-bottom: 3px;
             }
 
             * {
@@ -279,18 +277,23 @@
                 print-color-adjust: exact !important;
             }
             
+            /* 強制表格 100% 填滿頁面並縮小字體以容納 7 天 */
             table {
-                width: 100%;
+                width: 100% !important;
+                min-width: auto !important;
                 page-break-inside: avoid;
             }
             
             th, td {
-                padding: 8px 6px !important;
+                padding: 4px 2px !important;
+                font-size: 8.5px !important; /* 自動縮小字體以完整顯示 7 天內容 */
                 border: 1px solid #333 !important;
+                word-break: break-all; /* 防止文字過長撐開表格 */
             }
             
             th, td:first-child, th:first-child {
                 position: static !important;
+                font-size: 8px !important;
             }
         }
     </style>
@@ -309,10 +312,10 @@
         
         <div id="s6Settings" class="s6-settings-panel" style="display:none;">
             <label>中六完課日期：
-                <input type="date" id="s6GradDate" value="2027-03-01">
+                <input type="date" id="s6GradDate" value="2026-03-01">
             </label>
             <label>目前檢視日期：
-                <input type="date" id="viewDate" value="2027-05-27">
+                <input type="date" id="viewDate" value="2026-05-27">
             </label>
             <label style="cursor:pointer;">
                 <input type="checkbox" id="forceS6Free"> ⚠️ 強制使中六課堂變為空堂

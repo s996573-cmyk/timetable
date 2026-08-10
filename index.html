@@ -175,11 +175,16 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-top: 10px;
-            padding: 20px; /* 增加內距讓標題更好看 */
+            padding: 20px;
             box-sizing: border-box;
         }
         
-        /* 動態加入的標題樣式 */
+        /* 避免標題與表格被斷頁切開的容器 */
+        .print-container {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
         .print-header {
             text-align: left;
             font-size: 24px;
@@ -254,7 +259,6 @@
                 overflow: visible !important;
             }
             
-            /* 列印時的標題排版 */
             .print-header {
                 font-size: 18px !important;
                 color: black !important;
@@ -333,7 +337,6 @@
         </div>
     </div>
 
-    <!-- 列印按鈕區塊 -->
     <div id="printActionBar" style="display: none; width: 100%; max-width: 1200px; text-align: right; margin-bottom: 10px;">
         <button class="btn-primary" onclick="window.print()" style="background-color: #e67e22; margin-top: 0;">
             🖨️ 列印時間表
@@ -350,6 +353,18 @@
             if (!text) return false;
             const cleanText = String(text).trim();
             return /6[A-Za-z]|中六/.test(cleanText);
+        }
+
+        // 班主任判定：檢查該老師在第7日（即第7欄）是否有「學生培育課」
+        function isFormTeacher(teacherName) {
+            const tGrid = teacherData[teacherName];
+            if (!tGrid) return false;
+            for (let i = 0; i < tGrid.length; i++) {
+                if (tGrid[i] && String(tGrid[i][7] || '').includes('學生培育課')) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         function isS6Graduated() {
@@ -533,12 +548,22 @@
             const templateGrid = teacherData[Object.keys(teacherData)[0]];
             const commonGrid = [];
             
+            // 預先檢查所有選中的老師是否為班主任
+            const formTeacherStatus = {};
+            for (let t of selectedTeachers) {
+                formTeacherStatus[t] = isFormTeacher(t);
+            }
+            
             templateGrid.forEach((row, rIdx) => {
                 if (row.every(cell => String(cell).trim() === '')) return;
 
                 const newRow = [];
                 const firstCellData = String(row[1] || '').trim();
-                const isBreakRow = ['Morning Assembly', 'Recess', 'Lunch', 'Roll Call'].includes(firstCellData);
+                const timeCellData = String(row[0] || '').trim();
+                
+                // 將「課前集會」從休息時間判斷中移除，以便進入空堂檢查邏輯
+                const isBreakRow = ['Recess', 'Lunch', '小息', '午膳', '隨後小休'].some(b => firstCellData.includes(b));
+                const isMorningAssembly = timeCellData.includes('08:00') && timeCellData.includes('08:15');
                 
                 row.forEach((cell, cIdx) => {
                     if (rIdx === 0 || cIdx === 0 || isBreakRow) {
@@ -551,6 +576,12 @@
                         const tRow = teacherData[t][rIdx] || [];
                         const tCell = String(tRow[cIdx] || '').trim();
                         
+                        // 若為課前集會，且該老師是班主任，則判定為非空堂 (Busy)
+                        if (isMorningAssembly && formTeacherStatus[t]) {
+                            isFreeForAll = false;
+                            break;
+                        }
+                        
                         const isFreedSlot = s6FreeActive && isS6Class(tCell);
                         
                         if (tCell !== '' && !isFreedSlot) {
@@ -562,7 +593,7 @@
                     if (isFreeForAll) {
                         newRow.push('<div style="background:#e8f5e9; color:#27ae60; font-weight:bold; padding:8px; border-radius:4px; border:1px solid #a3e4d7;">✅ 空堂</div>');
                     } else {
-                        newRow.push('');
+                        newRow.push(''); // 在共同空堂表，若無共同空堂則保持空白
                     }
                 });
                 commonGrid.push(newRow);
@@ -571,12 +602,18 @@
             renderTable(commonGrid, true, "教師共同空堂表");
         }
 
-        // 渲染表格，現在接收第三個參數 titleText 來顯示老師姓名
+        // 渲染表格 (整合了避免斷頁的容器，與單人檢視時自動補齊課前集會的功能)
         function renderTable(rows, isCommonMode = false, titleText = '') {
             const s6FreeActive = isS6Graduated();
-            let html = '';
+            let isFormTeacherFlag = false;
             
-            // 插入標題
+            if (!isCommonMode && titleText) {
+                isFormTeacherFlag = isFormTeacher(titleText);
+            }
+
+            // 加入 .print-container 讓標題和表格綁在一起不被切頁
+            let html = '<div class="print-container">'; 
+            
             if (titleText) {
                 html += `<div class="print-header">${titleText}</div>`;
             }
@@ -591,6 +628,16 @@
                 row.forEach((cell, cIdx) => {
                     let cellContent = String(cell || '').replace(/\n/g, '<br>');
                     let isS6Vacant = false;
+
+                    const timeCellData = String(row[0] || '').trim();
+                    const isMorningAssembly = timeCellData.includes('08:00') && timeCellData.includes('08:15');
+
+                    // 在單人檢視模式中，如果他是班主任，自動把所有日子的課前集會填上「課前集會」
+                    if (!isCommonMode && isFormTeacherFlag && cIdx > 0 && isMorningAssembly) {
+                        if (!cellContent.trim()) {
+                            cellContent = '課前集會';
+                        }
+                    }
 
                     if (!isCommonMode && index > 0 && cIdx > 0 && s6FreeActive && isS6Class(cellContent)) {
                         isS6Vacant = true;
@@ -613,7 +660,7 @@
                 });
                 html += '</tr>';
             });
-            html += '</table>';
+            html += '</table></div>';
             
             document.getElementById('tableContainer').innerHTML = html;
             document.getElementById('printActionBar').style.display = 'block';

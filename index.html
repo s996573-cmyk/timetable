@@ -175,7 +175,21 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-top: 10px;
+            padding: 20px; /* 增加內距讓標題更好看 */
+            box-sizing: border-box;
         }
+        
+        /* 動態加入的標題樣式 */
+        .print-header {
+            text-align: left;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
@@ -210,7 +224,6 @@
         tr:hover { background-color: #f1f1f1; }
         .empty-cell { color: #aaa; }
         
-        /* 中六完課單元格樣式 */
         .s6-freed {
             color: #7f8c8d;
             font-size: 12px;
@@ -224,7 +237,7 @@
                 display: none !important;
             }
             @page {
-                size: A4 portrait; /* 已更改為直向 */
+                size: A4 portrait; /* 直向列印 */
                 margin: 10mm;
             }
             body {
@@ -235,17 +248,29 @@
             .table-container {
                 box-shadow: none;
                 margin: 0;
+                padding: 0;
                 width: 100%;
                 max-width: 100%;
                 overflow: visible !important;
             }
+            
+            /* 列印時的標題排版 */
+            .print-header {
+                font-size: 18px !important;
+                color: black !important;
+                border-bottom: 1px solid black;
+                margin-top: 0;
+                margin-bottom: 10px;
+                padding-bottom: 5px;
+            }
+
             * {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
             table {
                 width: 100%;
-                font-size: 10px; /* 稍微再縮小字體以適應直向寬度 */
+                font-size: 10px;
                 page-break-inside: avoid;
             }
             th, td {
@@ -272,10 +297,10 @@
         
         <div id="s6Settings" class="s6-settings-panel" style="display:none;">
             <label>中六完課日期：
-                <input type="date" id="s6GradDate" value="2026-03-01">
+                <input type="date" id="s6GradDate" value="2027-03-01">
             </label>
             <label>目前檢視日期：
-                <input type="date" id="viewDate" value="2026-05-27">
+                <input type="date" id="viewDate" value="2027-05-27">
             </label>
             <label style="cursor:pointer;">
                 <input type="checkbox" id="forceS6Free"> ⚠️ 強制使中六課堂變為空堂
@@ -321,14 +346,12 @@
     <script>
         const teacherData = {};
 
-        // 判斷該課堂字串是否屬於中六
         function isS6Class(text) {
             if (!text) return false;
             const cleanText = String(text).trim();
             return /6[A-Za-z]|中六/.test(cleanText);
         }
 
-        // 檢查目前是否已過中六完課階段
         function isS6Graduated() {
             if (document.getElementById('forceS6Free').checked) return true;
             
@@ -350,14 +373,13 @@
             const mode = document.querySelector('input[name="mode"]:checked').value;
             if (mode === 'single') {
                 const select = document.getElementById('teacherSelect');
-                if (select.value) renderTable(teacherData[select.value]);
+                if (select.value) renderTable(teacherData[select.value], false, select.value);
             } else {
                 const checkboxes = document.querySelectorAll('.cb-teacher:checked');
                 if (checkboxes.length > 0) renderCommonFree();
             }
         }
 
-        // 共用解析 Excel 資料的函數
         function processExcelData(data) {
             try {
                 const workbook = XLSX.read(data, {type: 'array'});
@@ -406,7 +428,6 @@
             }
         }
 
-        // 網頁載入時嘗試自動讀取伺服器上的 Excel
         window.addEventListener('DOMContentLoaded', async () => {
             try {
                 document.getElementById('statusMessage').innerText = "系統嘗試自動讀取伺服器上的時間表...";
@@ -427,7 +448,6 @@
             }
         });
 
-        // 支援手動上傳 Excel
         document.getElementById('excelFile').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -471,7 +491,7 @@
 
             select.onchange = function() {
                 if (this.value) {
-                    renderTable(teacherData[this.value]);
+                    renderTable(teacherData[this.value], false, this.value);
                 } else {
                     document.getElementById('tableContainer').innerHTML = '';
                     document.getElementById('printActionBar').style.display = 'none';
@@ -499,7 +519,6 @@
             checkboxes.forEach(cb => cb.checked = state);
         }
 
-        // 比對並渲染共同空堂
         function renderCommonFree() {
             const checkboxes = document.querySelectorAll('.cb-teacher:checked');
             const selectedTeachers = Array.from(checkboxes).map(cb => cb.value);
@@ -549,13 +568,20 @@
                 commonGrid.push(newRow);
             });
             
-            renderTable(commonGrid, true);
+            renderTable(commonGrid, true, "教師共同空堂表");
         }
 
-        // 渲染表格 (整合中六放假視覺效果與列印按鈕顯示)
-        function renderTable(rows, isCommonMode = false) {
+        // 渲染表格，現在接收第三個參數 titleText 來顯示老師姓名
+        function renderTable(rows, isCommonMode = false, titleText = '') {
             const s6FreeActive = isS6Graduated();
-            let html = '<table>';
+            let html = '';
+            
+            // 插入標題
+            if (titleText) {
+                html += `<div class="print-header">${titleText}</div>`;
+            }
+            
+            html += '<table>';
             
             rows.forEach((row, index) => {
                 const isEmptyRow = row.every(cell => String(cell).trim() === '');
@@ -588,9 +614,8 @@
                 html += '</tr>';
             });
             html += '</table>';
-            document.getElementById('tableContainer').innerHTML = html;
             
-            // 顯示列印按鈕
+            document.getElementById('tableContainer').innerHTML = html;
             document.getElementById('printActionBar').style.display = 'block';
         }
     </script>

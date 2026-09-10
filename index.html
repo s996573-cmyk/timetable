@@ -361,7 +361,7 @@
                 <input type="date" id="s6GradDate" value="2027-03-01">
             </label>
             <label>目前檢視日期：
-                <input type="date" id="viewDate" value="2027-05-27">
+                <input type="date" id="viewDate">
             </label>
             <label style="cursor:pointer;">
                 <input type="checkbox" id="forceS6Free"> ⚠️ 強制使中六課堂變為空堂
@@ -411,6 +411,20 @@
         };
 
         let currentCategory = 'teacher';
+
+        // 自動將「目前檢視日期」設為今天 (查詢當日)
+        function setTodayAsViewDate() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const todayStr = `${yyyy}-${mm}-${dd}`;
+            
+            const viewDateInput = document.getElementById('viewDate');
+            if (viewDateInput) {
+                viewDateInput.value = todayStr;
+            }
+        }
 
         // 判斷中六課堂或班別
         function isS6Class(text) {
@@ -491,8 +505,12 @@
             return count;
         }
 
-        // 頁面載入時嘗試載入三個檔案
+        // 頁面載入時設定日期並讀取預設檔案
         window.addEventListener('DOMContentLoaded', async () => {
+            // 1. 自動設定查詢日期為今天
+            setTodayAsViewDate();
+
+            // 2. 載入預設檔案
             const files = [
                 { cat: 'teacher', file: './Teacher_Timetable.xlsx', name: '教師' },
                 { cat: 'class', file: './Class_Timetable.xlsx', name: '班別' },
